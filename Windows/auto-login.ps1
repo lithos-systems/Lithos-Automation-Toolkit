@@ -1,43 +1,38 @@
 <#
 .SYNOPSIS
-  Downloads PsExec.exe from Sysinternals and places it on your Desktop.
-
-.DESCRIPTION
-  Fetches the PsExec.zip from Sysinternals, extracts only PsExec.exe,
-  then copies it to the current user's Desktop folder.
+  Downloads PsExec from Sysinternals and places PsExec.exe on the current user's Desktop.
+.EXAMPLE
+  iex (iwr "https://raw.githubusercontent.com/lithos-systems/Lithos-Automation-Toolkit/main/Windows/auto-login.ps1" -UseBasicParsing).Content
 #>
 
-# Where to drop PsExec.exe
-$Desktop = [Environment]::GetFolderPath('Desktop')
-
-# Sysinternals PsExec ZIP URL
-$Url = 'https://download.sysinternals.com/files/PsExec.zip'
-
-# Temp paths
-$TempZip  = Join-Path $env:TEMP 'PsExec.zip'
-$TempDir  = Join-Path $env:TEMP 'PsExec_Tmp'
+# Determine paths
+$desktop  = [Environment]::GetFolderPath('Desktop')
+$tempZip  = Join-Path $env:TEMP 'PsExec.zip'
+$tempDir  = Join-Path $env:TEMP 'PsExec'
 
 Try {
-    Write-Host "Downloading PsExec.zip…" -ForegroundColor Yellow
-    Invoke-WebRequest -Uri $Url -OutFile $TempZip -UseBasicParsing -ErrorAction Stop
+    Write-Host "Downloading PsExec.zip from Sysinternals..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/PsExec.zip' -OutFile $tempZip -UseBasicParsing -ErrorAction Stop
 
-    Write-Host "Extracting PsExec.exe…" -ForegroundColor Yellow
-    # ensure clean temp folder
-    Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($TempZip, $TempDir)
+    Write-Host "Extracting PsExec.exe to temporary folder..." -ForegroundColor Cyan
+    # Use built-in Expand-Archive to avoid assembly load issues
+    Expand-Archive -Path $tempZip -DestinationPath $tempDir -Force -ErrorAction Stop
 
-    $ExePath = Join-Path $TempDir 'PsExec.exe'
-    if (Test-Path $ExePath) {
-        Copy-Item -Path $ExePath -Destination $Desktop -Force -ErrorAction Stop
-        Write-Host "✅ PsExec.exe has been placed on your Desktop." -ForegroundColor Green
-    } else {
-        throw 'PsExec.exe not found in archive!'
+    $psexecExe = Join-Path $tempDir 'PsExec.exe'
+    if (-not (Test-Path $psexecExe)) {
+        Throw "Extraction failed: PsExec.exe not found in $tempDir"
     }
+
+    Write-Host "Copying PsExec.exe to your Desktop ($desktop)..." -ForegroundColor Cyan
+    Copy-Item -Path $psexecExe -Destination $desktop -Force -ErrorAction Stop
+
+    Write-Host "✓ PsExec.exe successfully placed on your Desktop." -ForegroundColor Green
 }
 Catch {
-    Write-Error "Failed: $($_.Exception.Message)"
+    Write-Error "❌ $_"
 }
 Finally {
-    # Clean up
-    Remove-Item -Path $TempZip, $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+    # Cleanup temp files
+    Remove-Item -Path $tempZip -ErrorAction SilentlyContinue -Force
+    Remove-Item -Path $tempDir -ErrorAction SilentlyContinue -Recurse -Force
 }
