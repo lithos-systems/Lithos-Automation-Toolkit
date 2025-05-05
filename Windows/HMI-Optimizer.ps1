@@ -435,9 +435,17 @@ try {
         winget install Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
         $wtPath = "$env:LocalAppData\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
         if (Test-Path $wtPath) {
-            $wtSettings = Get-Content $wtPath | ConvertFrom-Json
-            $wtSettings.profiles.defaults.shell = "pwsh"
-            $wtSettings | ConvertTo-Json -Depth 10 | Set-Content $wtPath
+            $wtSettings = Get-Content $wtPath | ConvertFrom-Json -ErrorAction SilentlyContinue
+            if ($wtSettings -and $wtSettings.profiles -and $wtSettings.profiles.defaults) {
+                $wtSettings.profiles.defaults | Add-Member -MemberType NoteProperty -Name shell -Value "pwsh" -Force
+                $wtSettings | ConvertTo-Json -Depth 10 | Set-Content $wtPath -ErrorAction Stop
+            } else {
+                Write-Warning "Windows Terminal settings.json is invalid or missing profiles.defaults"
+                Write-Log -Section "PowerShell7" -Status "Warning" -Message "Skipped shell configuration: invalid settings.json"
+            }
+        } else {
+            Write-Warning "Windows Terminal settings.json not found"
+            Write-Log -Section "PowerShell7" -Status "Warning" -Message "Skipped shell configuration: settings.json not found"
         }
         Write-Log -Section "PowerShell7" -Status "Success" -Message "Installed and configured"
     } else {
@@ -489,39 +497,42 @@ try {
     }
 
     $services = @(
-        "ALG", "AppIDSvc", "AppMgmt", "AppReadiness", "AppXSvc", "Appinfo", "AxInstSV", "BDESVC",
-        "BTAGService", "BcastDVRUserService_*", "BluetoothUserService_*", "Browser", "COMSysApp",
-        "CaptureService_*", "CertPropSvc", "ConsentUxUserSvc_*", "CscService", "DcpSvc",
-        "DevQueryBroker", "DeviceAssociationBrokerSvc_*", "DeviceAssociationService",
-        "DevicePickerUserSvc_*", "DevicesFlowUserSvc_*", "DisplayEnhancementService", "DmEnrollmentSvc",
-        "EFS", "EapHost", "EntAppSvc", "FDResPub", "Fax", "FrameServer", "FrameServerMonitor",
+        "ALG", "AppMgmt", "AppReadiness", "Appinfo", "AxInstSV", "BDESVC",
+        "BTAGService", "Browser", "COMSysApp",
+        "CertPropSvc", "CscService", "DcpSvc",
+        "DevQueryBroker", "DeviceAssociationService",
+        "DisplayEnhancementService", "DmEnrollmentSvc",
+        "EFS", "EapHost", "FDResPub", "Fax", "FrameServer", "FrameServerMonitor",
         "GraphicsPerfSvc", "HomeGroupListener", "HomeGroupProvider", "HvHost", "IEEtwCollectorService",
         "IKEEXT", "InstallService", "InventorySvc", "IpxlatCfgSvc", "KtmRm", "LicenseManager", "LxpSvc",
-        "MSDTC", "MSiSCSI", "McpManagementService", "MessagingService_*", "MicrosoftEdgeElevationService",
-        "MixedRealityOpenXRSvc", "MsKeyboardFilter", "NPSMSvc_*", "NaturalAuthentication", "NcaSvc",
-        "NcbService", "NcdAutoSetup", "NetSetupSvc", "NgcCtnrSvc", "NgcSvc",
-        "P9RdrService_*", "PNRPAutoReg", "PNRPsvc", "PeerDistSvc", "PenService_*", "PerfHost",
-        "PhoneSvc", "PimIndexMaintenanceSvc_*", "PrintNotify",
-        "PrintWorkflowUserSvc_*", "PushToInstall", "QWAVE", "RasAuto", "RasMan", "RetailDemo", "RmSvc",
+        "MSDTC", "MSiSCSI", "McpManagementService", "MicrosoftEdgeElevationService",
+        "MixedRealityOpenXRSvc", "MsKeyboardFilter", "NaturalAuthentication", "NcaSvc",
+        "NcbService", "NcdAutoSetup", "NetSetupSvc",
+        "PNRPAutoReg", "PNRPsvc", "PeerDistSvc", "PerfHost",
+        "PhoneSvc", "PrintNotify",
+        "PushToInstall", "QWAVE", "RasAuto", "RasMan", "RetailDemo", "RmSvc",
         "RpcLocator", "SCPolicySvc", "SCardSvr", "SDRSVC", "SEMgrSvc", "SNMPTRAP", "SSDPSRV",
-        "ScDeviceEnum", "SecurityHealthService", "Sense", "SensorDataService", "SensorService",
+        "ScDeviceEnum", "SensorDataService", "SensorService",
         "SensrSvc", "SessionEnv", "SharedAccess", "SharedRealitySvc", "SmsRouter", "SstpSvc", "StiSvc",
-        "TimeBroker", "TimeBrokerSvc", "TokenBroker", "TroubleshootingSvc", "TrustedInstaller",
-        "UI0Detect", "UdkUserSvc_*", "UnistoreSvc_*", "UserDataSvc_*",
-        "WEPHOSTSVC", "WFDSConMgrSvc", "WMPNetworkSvc", "WManSvc", "WPDBusEnum", "WSService",
-        "WaaSMedicSvc", "WalletService", "WarpJITSvc", "WbioSrvc", "WcsPlugInService", "WdNisSvc",
+        "TimeBroker", "TokenBroker", "TroubleshootingSvc", "TrustedInstaller",
+        "UI0Detect", "WEPHOSTSVC", "WFDSConMgrSvc", "WMPNetworkSvc", "WManSvc", "WPDBusEnum", "WSService",
+        "WaaSMedicSvc", "WalletService", "WarpJITSvc", "WbioSrvc", "WcsPlugInService",
         "WdiServiceHost", "WdiSystemHost", "Wecsvc", "WerSvc", "WiaRpc",
         "WpcMonSvc", "XblAuthManager", "XblGameSave", "XboxGipSvc", "XboxNetApiSvc",
         "autotimesvc", "bthserv", "camsvc", "cloudidsvc", "dcsvc", "defragsvc",
         "diagnosticshub.standardcollector.service", "diagsvc", "dmwappushservice", "dot3svc",
-        "edgeupdatem", "embeddedmode", "fdPHost", "fhsvc", "hidserv", "icssvc", "lfsvc", "lltdsvc",
-        "lmhosts", "msiserver", "netprofm", "p2pimsvc", "p2psvc", "perceptionsimulation", "pla",
+        "edgeupdatem", "fdPHost", "fhsvc", "hidserv", "icssvc", "lfsvc", "lltdsvc",
+        "lmhosts", "netprofm", "p2pimsvc", "p2psvc", "perceptionsimulation", "pla",
         "seclogon", "smphost", "spectrum", "svsvc", "swprv", "upnphost", "vds", "vm3dservice",
         "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", "vmicrdv", "vmicshutdown",
         "vmictimesync", "vmicvmsession", "vmicvss", "vmvss", "wbengine", "wcncsvc", "webthreatdefsvc",
         "wercplsupport", "wisvc", "wlidsvc", "wlpasvc", "wmiApSrv", "workfolderssvc", "wudfsvc"
     )
 
+    $protectedServices = @(
+        "AppIDSvc", "AppXSvc", "EntAppSvc", "NgcCtnrSvc", "NgcSvc", "PrintWorkflowUserSvc_*",
+        "SecurityHealthService", "Sense", "TimeBrokerSvc", "WdNisSvc", "embeddedmode", "msiserver"
+    )
     $whitelistPatterns = @("*vnc*", "TermService", "NlaSvc", "Netman", "WinHttpAutoProxySvc", "W32Time", "WinRM", "UmRdpService", "WebClient", "ClipSVC", "gpsvc", "Dnscache", "WaaSMedicSvc", "PlugPlay", "DeviceInstall")
     $toAdjust = Get-Service | Where-Object {
         $name = $_.Name
@@ -529,6 +540,10 @@ try {
     } | Select-Object -ExpandProperty Name
 
     foreach ($s in $services) {
+        if ($s -in $protectedServices -or ($s -like "*_*" -and $protectedServices -contains ($s -replace "_.*", ""))) {
+            Write-Log -Section "Services" -Status "Info" -Message "Skipped $($s) (protected service)"
+            continue
+        }
         if ($s -like "*_*") {
             $servicePattern = $s -replace "\*$", ""
             $matchingServices = Get-Service -Name "$servicePattern*" -ErrorAction SilentlyContinue | Where-Object { $toAdjust -contains $_.Name }
@@ -537,8 +552,13 @@ try {
                     Set-Service -Name $ms.Name -StartupType Manual -ErrorAction Stop
                     Write-Log -Section "Services" -Status "Success" -Message "Set $($ms.Name) to Manual"
                 } catch {
-                    Write-Warning "Error setting $($ms.Name): $($_.Exception.Message)"
-                    Write-Log -Section "Services" -Status "Error" -Message "Error setting $($ms.Name): $($_.Exception.Message)"
+                    if ($_.Exception.Message -match "parameter is incorrect") {
+                        Write-Warning "Cannot set startup type for per-user service $($ms.Name)"
+                        Write-Log -Section "Services" -Status "Warning" -Message "Skipped $($ms.Name): per-user service"
+                    } else {
+                        Write-Warning "Error setting $($ms.Name): $($_.Exception.Message)"
+                        Write-Log -Section "Services" -Status "Error" -Message "Error setting $($ms.Name): $($_.Exception.Message)"
+                    }
                 }
             }
         } else {
@@ -618,7 +638,7 @@ try {
     }
     foreach ($entry in $adobeBlocks) {
         try {
-            if (-not (Select-String -Path $hostsPath -Pattern [regex]::Escape($entry))) {
+            if (-not (Select-String -Path $hostsPath -Pattern ([regex]::Escape($entry)) -Quiet)) {
                 Add-Content -Path $hostsPath -Value $entry -ErrorAction Stop
                 $hostsModified = $true
             }
@@ -644,7 +664,9 @@ try {
     }
 
     Write-Verbose "Disabling notifications…"
-    $notifyPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings"
+    $notifyParent = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications"
+    $notifyPath = "$notifyParent\Settings"
+    New-Item -Path $notifyParent -Force -ErrorAction Stop
     New-Item -Path $notifyPath -Force -ErrorAction Stop
     Set-ItemProperty -Path $notifyPath -Name "Enabled" -Type DWord -Value 0 -Force -ErrorAction Stop
 
