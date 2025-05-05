@@ -1,33 +1,43 @@
 <#
 .SYNOPSIS
-  Downloads PsExec.exe from Sysinternals if it’s not already next to this script.
+  Downloads PsExec.exe from Sysinternals and places it on your Desktop.
+
+.DESCRIPTION
+  Fetches the PsExec.zip from Sysinternals, extracts only PsExec.exe,
+  then copies it to the current user's Desktop folder.
 #>
 
-# Determine this script’s folder on disk
-$scriptFolder = $PSScriptRoot
-
-# Path where we expect PsExec.exe
-$psexecExe = Join-Path $scriptFolder 'PsExec.exe'
+# Where to drop PsExec.exe
+$Desktop = [Environment]::GetFolderPath('Desktop')
 
 # Sysinternals PsExec ZIP URL
-$psexecUrl = 'https://download.sysinternals.com/files/PsExec.zip'
+$Url = 'https://download.sysinternals.com/files/PsExec.zip'
 
-if (-not (Test-Path $psexecExe)) {
-    Write-Host "Downloading PsExec from Sysinternals…" -ForegroundColor Yellow
-    $zip = Join-Path $env:TEMP 'PsExec.zip'
+# Temp paths
+$TempZip  = Join-Path $env:TEMP 'PsExec.zip'
+$TempDir  = Join-Path $env:TEMP 'PsExec_Tmp'
 
-    Invoke-WebRequest `
-      -Uri $psexecUrl `
-      -OutFile $zip `
-      -UseBasicParsing `
-      -ErrorAction Stop
+Try {
+    Write-Host "Downloading PsExec.zip…" -ForegroundColor Yellow
+    Invoke-WebRequest -Uri $Url -OutFile $TempZip -UseBasicParsing -ErrorAction Stop
 
-    Expand-Archive -LiteralPath $zip -DestinationPath $scriptFolder -Force
-    Remove-Item $zip -Force
+    Write-Host "Extracting PsExec.exe…" -ForegroundColor Yellow
+    # ensure clean temp folder
+    Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($TempZip, $TempDir)
 
-    if (Test-Path $psexecExe) {
-        Write-Host "✅ PsExec.exe downloaded to $scriptFolder" -ForegroundColor Green
+    $ExePath = Join-Path $TempDir 'PsExec.exe'
+    if (Test-Path $ExePath) {
+        Copy-Item -Path $ExePath -Destination $Desktop -Force -ErrorAction Stop
+        Write-Host "✅ PsExec.exe has been placed on your Desktop." -ForegroundColor Green
     } else {
-        Throw "Failed to extract PsExec.exe"
+        throw 'PsExec.exe not found in archive!'
     }
+}
+Catch {
+    Write-Error "Failed: $($_.Exception.Message)"
+}
+Finally {
+    # Clean up
+    Remove-Item -Path $TempZip, $TempDir -Recurse -Force -ErrorAction SilentlyContinue
 }
