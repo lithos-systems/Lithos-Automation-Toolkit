@@ -27,8 +27,8 @@
 # --- USER INPUT ---
 $siteUrl = Read-Host "Enter the base URL of your VTScada Application (e.g. https://yourapplication.com)"
 $realm = Read-Host "Enter the VTScada realm (e.g. your-realm)"
-$username = Read-Host "VTScada Username:"
-$password = Read-Host "VTScada Password:"
+$username = Read-Host "VTScada Username"
+$password = Read-Host "VTScada Password"
 
 # Construct full API endpoint
 $baseUrl = "$siteUrl/$realm/REST/SQLQuery"
