@@ -1,6 +1,8 @@
 <#
 .SYNOPSIS
   HMI Optimization Script - Optimizes Windows for a clean, efficient HMI application.
+  Run using
+    iex (iwr "https://raw.githubusercontent.com/lithos-systems/Lithos-Automation-Toolkit/main/Windows/HMI-Optimizer.ps1")
 .DESCRIPTION
   Removes bloatware, disables telemetry, and optimizes performance for a lightweight Windows installation.
   Sets specified system services to Manual for on-demand startup, excluding critical networking and remote access services.
