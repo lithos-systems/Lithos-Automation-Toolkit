@@ -377,7 +377,6 @@ if (-not $SkipCleanup) {
                 Start-Process cleanmgr.exe -ArgumentList "/d C: /VERYLOWDISK" -Wait
             } else {
                 Start-Process cleanmgr.exe -ArgumentList "/d C: /VERYLOWDISK" -Wait
-                Start-Process Dism.exe -ArgumentList "/online /Cleanup-Image /StartComponentCleanup /ResetBase" -Wait
             }
         }
         $startTime = (Get-Job $job.Id).PSBeginTime
